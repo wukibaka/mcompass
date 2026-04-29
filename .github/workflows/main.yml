@@ -1,6 +1,7 @@
 name: Build Firmware Workflow on main
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -14,10 +15,10 @@ jobs:
         server_mode: [BLE, WIFI]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       
       - name: Run PlatformIO Action
-        uses: karniv00l/platformio-run-action@e6467e68a40b381568bad448faf0a1413c72fc7f
+        uses: karniv00l/platformio-run-action@v1
         env:
           DEFAULT_MODEL: ${{ matrix.model }}
           DEFAULT_SERVER_MODE: ${{ matrix.server_mode }}
@@ -30,11 +31,14 @@ jobs:
           silent: ""       # true/false
           verbose: ""      # true/false
           disable-auto-clean: "" # true/false
+
       - name: Build Filesystem
         run: pio run -t buildfs -v --project-dir ./Firmware/
+
       - name: Install esptool.py
         run: |
           python3 -m pip install esptool
+
       - name: Merge binary files
         run: |
           esptool.py --chip esp32c3 merge_bin \
@@ -47,11 +51,13 @@ jobs:
           0x10000 ./Firmware/.pio/build/esp32-c3-devkitm-1/firmware.bin \
           0x210000 ./Firmware/.pio/build/esp32-c3-devkitm-1/littlefs.bin \
           -o mcompass-${{ matrix.model }}-${{ matrix.server_mode }}.bin
+
       - name: Get commit hash
         id: get_commit_hash
         run: echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
       - name: Upload merged firmware
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mcompass-${{ matrix.model }}-${{ matrix.server_mode }}-${{ env.COMMIT_HASH }}
           path: mcompass-${{ matrix.model }}-${{ matrix.server_mode }}.bin
